@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dds-controller-manager
+  namespace: composable-dra
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      app.kubernetes.io/name: dynamic-device-scaler
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+        app.kubernetes.io/name: dynamic-device-scaler
+    spec:
+      containers:
+      - name: dynamic-device-scaler
+        image: dds
+        command:
+        - /dynamic-device-scaler
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+      serviceAccountName: dds-controller-manager
+      terminationGracePeriodSeconds: 10

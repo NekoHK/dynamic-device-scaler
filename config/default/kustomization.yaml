@@ -1,0 +1,11 @@
+# Adds namespace to all resources.
+namespace: composable-dra
+
+# Labels to add to all resources and selectors.
+#labels:
+#- includeSelectors: true
+#  pairs:
+#    someName: someValue
+resources:
+- ../rbac
+- ../manager
