@@ -278,7 +278,7 @@ func PatchResourceClaimDeviceConditions(ctx context.Context, kubeClient client.C
 }
 
 // UpdateNodeLabel updates the labels of a node.
-func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet kubernetes.Interface, nodeName string, composableDRASpec types.ComposableDRASpec) error {
+func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet kubernetes.Interface, nodeInfo types.NodeInfo, composableDRASpec types.ComposableDRASpec) error {
 	logger := ctrl.LoggerFrom(ctx)
 	logger.V(1).Info("Start updating Node label")
 
@@ -290,7 +290,7 @@ func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet ku
 	}
 
 	for _, cr := range composabilityRequestList.Items {
-		if cr.Spec.Resource.TargetNode == nodeName {
+		if cr.Spec.Resource.TargetNode == nodeInfo.Name {
 			if cr.Spec.Resource.Size > 0 {
 				if notIn(cr.Spec.Resource.Model, installedDevices) {
 					installedDevices = append(installedDevices, cr.Spec.Resource.Model)
@@ -305,7 +305,7 @@ func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet ku
 	}
 
 	for _, rs := range resourceList.Items {
-		if rs.Spec.TargetNode == nodeName {
+		if rs.Spec.TargetNode == nodeInfo.Name {
 			if rs.Status.State == "Online" {
 				if notIn(rs.Spec.Model, installedDevices) {
 					installedDevices = append(installedDevices, rs.Spec.Model)
@@ -325,6 +325,16 @@ func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet ku
 		}
 	}
 
+	for _, modelConstraint := range nodeInfo.Models {
+		if modelConstraint.MaxDeviceSet && modelConstraint.MaxDevice == 0 {
+			for _, deviceInfo := range composableDRASpec.DeviceInfos {
+				if modelConstraint.DeviceName == deviceInfo.K8sDeviceName {
+					notCoexistID = append(notCoexistID, deviceInfo.Index)
+				}
+			}
+		}
+	}
+
 	for _, deviceInfo := range composableDRASpec.DeviceInfos {
 		if notIn(deviceInfo.Index, notCoexistID) {
 			label := composableDRASpec.LabelPrefix + "/" + deviceInfo.K8sDeviceName
@@ -337,5 +347,5 @@ func UpdateNodeLabel(ctx context.Context, kubeClient client.Client, clientSet ku
 
 	logger.V(1).Info("Start patch Node label", "add labels", addLabels, "delete labels", deleteLabels)
 
-	return patchNodeLabel(clientSet, nodeName, addLabels, deleteLabels)
+	return patchNodeLabel(clientSet, nodeInfo.Name, addLabels, deleteLabels)
 }

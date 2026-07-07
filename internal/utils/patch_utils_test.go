@@ -41,6 +41,7 @@ func TestUpdateNodeLabel(t *testing.T) {
 		existingResourceList *cdioperator.ComposableResourceList
 		existingNode         *corev1.Node
 		nodeName             string
+		nodeInfo             types.NodeInfo
 		composableDRASpec    types.ComposableDRASpec
 		expectedNodeLabels   map[string]string
 		wantErr              bool
@@ -319,6 +320,58 @@ func TestUpdateNodeLabel(t *testing.T) {
 			nodeName: "test",
 			wantErr:  false,
 		},
+		{
+			name: "do not add label when max device is zero",
+			existingRequestList: &cdioperator.ComposabilityRequestList{
+				Items: []cdioperator.ComposabilityRequest{},
+			},
+			existingResourceList: &cdioperator.ComposableResourceList{
+				Items: []cdioperator.ComposableResource{},
+			},
+			existingNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Labels: map[string]string{
+						"composable.fsastech.com/nvidia-a100-80g": "true",
+					},
+				},
+			},
+			nodeName: "test",
+			nodeInfo: types.NodeInfo{
+				Name: "test",
+				Models: []types.ModelConstraints{
+					{
+						Model:        "A100 80G",
+						DeviceName:   "nvidia-a100-80g",
+						MaxDevice:    0,
+						MaxDeviceSet: true,
+					},
+				},
+			},
+			composableDRASpec: types.ComposableDRASpec{
+				DeviceInfos: []types.DeviceInfo{
+					{
+						Index:            1,
+						CDIModelName:     "A100 40G",
+						DriverName:       "gpu.nvidia.com",
+						K8sDeviceName:    "nvidia-a100-40g",
+						CannotCoexistWith: []int{2},
+					},
+					{
+						Index:            2,
+						CDIModelName:     "A100 80G",
+						DriverName:       "gpu.nvidia.com",
+						K8sDeviceName:    "nvidia-a100-80g",
+						CannotCoexistWith: []int{1},
+					},
+				},
+				LabelPrefix: "composable.fsastech.com",
+			},
+			expectedNodeLabels: map[string]string{
+				"composable.fsastech.com/nvidia-a100-40g": "true",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -349,7 +402,12 @@ func TestUpdateNodeLabel(t *testing.T) {
 
 			fakeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(clientObjects...).Build()
 
-			err := UpdateNodeLabel(context.Background(), fakeClient, kubeClient, tc.nodeName, tc.composableDRASpec)
+			nodeInfo := tc.nodeInfo
+			if nodeInfo.Name == "" {
+				nodeInfo.Name = tc.nodeName
+			}
+
+			err := UpdateNodeLabel(context.Background(), fakeClient, kubeClient, nodeInfo, tc.composableDRASpec)
 
 			if tc.wantErr {
 				if err == nil {

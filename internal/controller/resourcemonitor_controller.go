@@ -180,7 +180,7 @@ func (r *ResourceMonitorReconciler) handleNodes(ctx context.Context, nodeInfos [
 			return fmt.Errorf("failed to handle devices: %v", err)
 		}
 
-		err = utils.UpdateNodeLabel(ctx, r.Client, r.ClientSet, nodeInfo.Name, composableDRASpec)
+		err = utils.UpdateNodeLabel(ctx, r.Client, r.ClientSet, nodeInfo, composableDRASpec)
 		if err != nil {
 			return fmt.Errorf("failed to update node label: %v", err)
 		}
